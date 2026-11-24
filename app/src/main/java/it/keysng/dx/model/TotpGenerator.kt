@@ -30,7 +30,8 @@ object TotpGenerator {
             ((digest[offset + 1].toInt() and 0xff) shl 16) or
             ((digest[offset + 2].toInt() and 0xff) shl 8) or
             (digest[offset + 3].toInt() and 0xff)
-        val modulus = (1L..token.digits).fold(1L) { value, _ -> value * 10L }
+        var modulus = 1L
+        repeat(token.digits) { modulus *= 10L }
         return (binary.toLong() % modulus).toString().padStart(token.digits, '0')
     }
 
