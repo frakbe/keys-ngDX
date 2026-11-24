@@ -221,7 +221,7 @@ class MainActivity : ComponentActivity() {
         searchField = EditText(this).apply {
             hint = "Cerca voci"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            singleLine = true
+            isSingleLine = true
             visibility = android.view.View.GONE
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
