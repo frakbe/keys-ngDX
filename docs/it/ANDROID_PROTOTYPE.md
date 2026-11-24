@@ -1,104 +1,97 @@
-# Prototipo Android Keys NG DX
+# Keys NG DX per Android
 
-Il prototipo apre un singolo file record `.gpg`, chiede la decifratura a un provider OpenPGP Android tramite l'API OpenPGP, interpreta il JSON Keys NG schema 1 e mostra i campi in sola lettura. Non contiene né importa chiavi private e non implementa la crittografia: il provider installato sul dispositivo gestisce la chiave e l'eventuale sblocco. Il pulsante **Licenza e informazioni** mostra una breve nota GPL; il testo GPL completo è nel repository.
+Prima build funzionale del lettore Android nativo in Kotlin. L'app apre una directory scelta tramite il selettore documenti Android, decifra `catalog.gpg` e `folders.gpg` tramite PGPony e mostra l'alberatura del vault. Le singole voci si aprono in sola lettura; i campi possono essere copiati e gli URL web (`http`/`https`) possono essere aperti nel browser.
 
-## Avvertenza
+## Funzioni incluse
 
-È un prototipo tecnico. Non usarlo per consultare vault reali o conservare dati sensibili. Non implementa ancora la policy completa del vault: non apre `vault.json`, `catalog.gpg` o `folders.gpg`; non controlla `require_signature` e `trusted_signers`; non verifica che l'UUID del record corrisponda al file selezionato; non risolve i riferimenti `{REF:...}` tra voci. Mostra lo stato firma restituito dal provider solo come informazione diagnostica.
+- Accesso in sola lettura alla directory del vault tramite Storage Access Framework; la selezione viene ricordata sul dispositivo.
+- Caricamento di `catalog.gpg`, `folders.gpg` (se presente) e dei file `records/<uuid>.gpg`.
+- Alberatura di cartelle annidate, voci senza cartella e ordinamento alfabetico.
+- Decifratura OpenPGP delegata a PGPony. Keys NG DX non importa né conserva chiavi private o passphrase.
+- Verifica dell'hash ciphertext quando presente nel catalogo e confronto di UUID, titolo, revisione e cartella del record con il catalogo.
+- Visualizzazione e copia di titolo, username, password, TOTP, URL, host, note, tag e campi personalizzati.
+- Gli URL `http` e `https` sono cliccabili e si aprono con il browser installato.
+- L'app non modifica il vault e non esegue azioni SSH, RDP o comandi.
 
-## Requisiti per provarlo
+## Limiti della prima build
 
-- Telefono o emulatore Android 8.0 (API 26) o successivo.
-- PGPony installato e avviato almeno una volta. Nel prototipo il package provider predefinito è `com.pgpony.android`.
-- Una chiave di prova già importata in PGPony e autorizzata a decifrare il record scelto.
-- Una voce cifrata `.gpg` di un vault di prova, con dati fittizi.
+Questa build è destinata alla verifica con vault di prova. Non legge ancora `vault.json`, non applica la policy `require_signature` e non confronta l'identità completa del firmatario con `trusted_signers`. Lo stato firma restituito da PGPony è mostrato a schermo come informazione, ma non è sufficiente a dimostrare che il firmatario sia autorizzato dal vault. I riferimenti `{REF:...}` fra record restano letterali. Non usare questa build come unico controllo di integrità o fiducia per dati critici.
 
-Alla prima richiesta PGPony mostra una schermata di consenso per collegare Keys NG DX. Conferma con **Allow**; solo dopo l'approvazione l'app compare in **Settings → Keys & Servers → Connected apps**. Questa schermata elenca le app già autorizzate, non le richieste pendenti: prima del consenso è normale che mostri “No connected apps yet”. PGPony può poi mostrare una schermata separata per scegliere o sbloccare la chiave.
+Il JSON decifrato non viene scritto su disco e i segreti non vengono scritti nei log. L'app usa `FLAG_SECURE` per limitare screenshot e anteprime nello switcher e cancella i dettagli dalla schermata quando passa in background. I dati rimangono comunque in memoria mentre la voce è aperta.
+
+## Requisiti
+
+- Android 8.0 (API 26) o successivo.
+- PGPony installato e inizializzato; il package provider predefinito è `com.pgpony.android`.
+- Una chiave già disponibile in PGPony, autorizzata a decifrare catalogo, cartelle e record.
+- Un vault Keys NG di prova accessibile dal selettore Android.
+
+Alla prima richiesta PGPony mostra una schermata di consenso per collegare Keys NG DX. Conferma con **Allow**; dopo l'approvazione l'app compare in **Settings → Keys & Servers → Connected apps**. L'elenco mostra solo le app autorizzate. PGPony può inoltre richiedere lo sblocco della chiave.
 
 ## Uso
 
-1. Genera e installa l'APK seguendo la sezione seguente.
-2. In PGPony importa una chiave creata appositamente per la prova.
-3. Copia sul telefono una singola voce `.gpg` cifrata a quella chiave.
-4. Avvia **Keys NG DX**, tocca **Apri una voce cifrata (.gpg)** e seleziona il file tramite il selettore Android.
-5. Autorizza l'app in PGPony e completa la richiesta di decifratura.
-6. Controlla titolo, tipo, username, password, TOTP, note e campi personalizzati. Usa **Copia** per copiare un valore. La clipboard viene svuotata dopo 30 secondi, se nel frattempo non è stato copiato un altro valore.
-7. Quando l'app passa in background, il contenuto mostrato viene rimosso dalla schermata.
+1. Installa la build APK.
+2. Avvia Keys NG DX e tocca **Apri vault**.
+3. Nel selettore Android scegli la directory principale del vault (quella che contiene `catalog.gpg` e `records/`).
+4. Completa in PGPony il consenso iniziale e gli eventuali passaggi di sblocco per decifrare catalogo e cartelle.
+5. Espandi le cartelle e seleziona una voce. PGPony può richiedere di nuovo lo sblocco per il record.
+6. Tocca **Copia** accanto al campo desiderato. La clipboard viene svuotata dopo 30 secondi se il contenuto non è stato sostituito.
+7. Tocca il valore URL o **Apri** per aprire un indirizzo web nel browser. Solo schemi `http` e `https` vengono aperti.
+8. Usa **Aggiorna** per rileggere i file dal vault. Se Android revoca l'accesso alla directory, selezionala nuovamente.
 
-Il prototipo non salva il JSON decifrato su disco e non scrive i segreti nei log. Usa `FLAG_SECURE` per impedire screenshot e anteprime dell'app switcher, e disabilita il backup Android.
+## Generare l'APK
 
-## Generare l'APK con Android Studio
+### Android Studio
 
-### Software necessario
-
-- Android Studio stabile con Android SDK Platform 35 e Build Tools 35.
-- JDK 17. Android Studio include un JDK compatibile selezionabile in **Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK**.
-- Connessione internet al primo avvio per scaricare Gradle e le dipendenze da Google Maven, Maven Central e JitPack.
-
-### Procedura
-
-1. Clona il repository:
+1. Installa Android Studio stabile, Android SDK Platform 35, Build Tools 35 e JDK 17.
+2. Clona il repository e aprilo in Android Studio:
 
    ```bash
    git clone https://github.com/frakbe/keys-ngDX.git
    cd keys-ngDX
    ```
 
-2. Apri la cartella del repository in Android Studio e attendi il completamento di **Gradle Sync**. Se richiesto, installa Android SDK Platform 35 e Build Tools 35.
+3. Attendi il completamento di **Gradle Sync** e installa gli SDK richiesti se Android Studio li propone.
+4. Seleziona **Build → Build Bundle(s) / APK(s) → Build APK(s)**, quindi **Locate** nella notifica.
 
-3. Seleziona **Build → Build Bundle(s) / APK(s) → Build APK(s)**. Al termine usa **Locate** nella notifica di Android Studio.
+L'APK di debug si trova in `app/build/outputs/apk/debug/app-debug.apk`.
 
-   L'APK di debug è anche in:
+### Terminale
 
-   ```text
-   app/build/outputs/apk/debug/app-debug.apk
-   ```
-
-4. Installa l'APK sul dispositivo. Con `adb`:
-
-   ```bash
-   adb install -r app/build/outputs/apk/debug/app-debug.apk
-   ```
-
-### Procedura da terminale
-
-Con JDK 17 e Android SDK installati e configurati in Android Studio:
+Con JDK 17 e Android SDK configurati:
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-Su Windows usare:
+Su Windows:
 
 ```bat
 gradlew.bat :app:assembleDebug
 ```
 
-Il wrapper scarica Gradle 8.11.1 al primo avvio. Android Studio deve avere installato Android SDK Platform 35 e Build Tools 35.
+Il wrapper scarica Gradle 8.11.1 al primo avvio; serve una connessione internet. Per installare con ADB:
 
-## APK di release
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
 
-L'APK `debug` viene firmato automaticamente con una chiave di debug e serve per prove locali. Per distribuire una build, usare **Build → Generate Signed Bundle / APK → APK** in Android Studio e creare o selezionare una chiave release. Conservare keystore e password fuori dal repository e farne un backup sicuro; non aggiungerli a Git.
+Le build CI sono firmate con una chiave debug temporanea. Per installare una build CI sopra una build precedente potrebbe essere necessario disinstallare prima Keys NG DX. Una distribuzione stabile richiede un APK firmato con un keystore release conservato fuori dal repository.
 
-## Compilazione automatica
-
-Il workflow GitHub Actions `Android prototype` compila `:app:assembleDebug` quando viene aggiornato un branch e conserva l'APK come artifact della run. L'artifact è una build di debug per prova; non è una release firmata per distribuzione.
-
-## Modello e campi
-
-Il parser supporta lo schema 1 descritto in `docs/it/VAULT_FORMAT_1.0.md` del progetto Keys NG: `title`, `kind`, `usernames`, `password`, `totp`, `actions` (campi `url` e `host`), `tags`, `notes`, `custom_fields` e `revision`. La schermata mostra titolo, username, password, TOTP, URL, host e note quando presenti. Campi con valore `{REF:U@I:...}` o `{REF:P@I:...}` sono mostrati letteralmente: la risoluzione richiede l'accesso agli altri record del vault.
-
-I dati `url` e `host` delle azioni vengono mostrati come testo copiabile. Le azioni URL/SSH/RDP/command non vengono eseguite da questo client.
+Il workflow GitHub Actions **Android app** compila l'APK a ogni aggiornamento del branch e pubblica l'artifact `keys-ngdx-android-debug-apk` per 14 giorni. L'artifact è una build di prova, non una release firmata per la distribuzione.
 
 ## Diagnostica
 
-- **Provider non disponibile**: verifica che PGPony sia installato; chiudi e riapri Keys NG DX.
-- **Richiesta di autorizzazione**: alla prima apertura del file, accetta il dialogo di consenso PGPony con **Allow**. Dopo l'accettazione Keys NG DX compare in PGPony → Settings → Keys & Servers → Connected apps.
-- **“PGPony non ha completato la schermata di autorizzazione”**: il codice 0 è `RESULT_CANCELED`; può indicare che il dialogo è stato chiuso/rifiutato o che l'attività di consenso non è terminata correttamente. **Connected apps** mostra solo le app approvate, quindi l'elenco vuoto da solo non indica una richiesta pendente. Su Android 14 o successivo, usa una build aggiornata che abilita esplicitamente l'avvio dell'attività del provider tramite `PendingIntent` quando Keys NG DX è in primo piano. Se il dialogo ancora non compare, annota versione Android e versione PGPony e raccogli i messaggi `ActivityTaskManager` con ADB.
-- **Chiave mancante o passphrase errata**: controlla che la chiave privata corretta sia nel portachiavi PGPony e che possa decifrare il record.
-- **JSON non valido**: assicurati di selezionare il file record di una voce, non `catalog.gpg` o `folders.gpg`, e verifica che il record sia schema 1.
-- **Firma non valida o assente**: il prototipo mostra il risultato del provider, ma non applica la policy del vault; non usare il risultato come verifica di integrità per un vault reale.
+- **Provider OpenPGP non disponibile**: verifica che PGPony sia installato e poi riapri Keys NG DX.
+- **PGPony non mostra il consenso**: alla prima apertura dovrebbe comparire il dialogo di autorizzazione. Dopo aver consentito, controlla **Settings → Keys & Servers → Connected apps**.
+- **Catalogo o cartelle non decifrati**: verifica che la chiave in PGPony possa leggere entrambi i file, oltre ai record.
+- **File record mancante**: assicurati che `records/` si trovi direttamente nella directory scelta e contenga `<uuid>.gpg`.
+- **Hash o metadati non corrispondenti**: aggiorna il vault e riprova; il record cifrato deve corrispondere alla voce del catalogo.
+- **URL non si apre**: sono ammessi solo indirizzi web completi con schema `http` o `https` e host valido.
 
-## Estensioni previste
+## Struttura del codice
 
-Per passare alla app definitiva, conservare `OpenPgpProviderClient` come adapter Android dietro un'interfaccia e spostare la vista in Flutter tramite un plugin o un platform channel. Il modello e il parser JSON sono indipendenti dalla UI. I prossimi componenti necessari sono un selettore del vault via Storage Access Framework, lettura e validazione del catalogo, verifica dei firmatari secondo `vault.json`, risoluzione dei riferimenti e una gestione della sessione con cancellazione esplicita dei dati in memoria.
+- `crypto/OpenPgpProviderClient.kt`: adapter Kotlin dell'API OpenPGP del provider.
+- `storage/VaultDocumentTree.kt`: accesso SAF in sola lettura.
+- `model/EntryJsonParser.kt` e `model/VaultIndexParser.kt`: parser indipendenti dalla UI per i payload schema 1.
+- `MainActivity.kt`: interfaccia Android iniziale. Il livello provider e i parser possono essere riutilizzati se in seguito si porta la UI in Flutter tramite platform channel.

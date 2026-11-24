@@ -1,14 +1,15 @@
 # Keys NG DX
 
-Prototipo Android nativo in Kotlin per leggere una singola voce Keys NG cifrata in OpenPGP. La decifratura viene richiesta a un provider Android, con PGPony come provider predefinito; l'app interpreta il JSON schema 1 e mostra i campi copiabili.
+Lettore Android nativo in Kotlin per vault Keys NG. Apre la directory del vault, decifra catalogo e cartelle con PGPony, mostra l'alberatura e permette di consultare e copiare i campi delle voci. Gli URL web possono essere aperti nel browser. L'app non modifica i file e non esegue azioni remote.
 
-Questa è una prova tecnica, non ancora una versione per l'uso quotidiano. Leggere [la guida del prototipo](docs/it/ANDROID_PROTOTYPE.md) e le sue limitazioni prima di provarlo. La guida contiene anche i passaggi per generare l'APK.
+Questa prima build è destinata alla prova: la policy di fiducia `trusted_signers` non è ancora applicata. Prima di usarla con dati critici, leggi [la guida Android](docs/it/ANDROID_PROTOTYPE.md), inclusi limiti e procedura per generare l'APK.
 
 ## Struttura
 
 - `app/src/main/java/it/keysng/dx/crypto`: adapter Kotlin dell'API OpenPGP Android.
-- `app/src/main/java/it/keysng/dx/model`: modello e parser riutilizzabile del record Keys NG schema 1.
-- `app/src/main/java/it/keysng/dx/MainActivity.kt`: interfaccia Android temporanea; in una futura app Flutter può essere sostituita da una schermata Dart mantenendo il confine Kotlin per il provider.
+- `app/src/main/java/it/keysng/dx/storage`: accesso in sola lettura al vault tramite Storage Access Framework.
+- `app/src/main/java/it/keysng/dx/model`: modelli e parser riutilizzabili di catalogo, cartelle e record Keys NG schema 1.
+- `app/src/main/java/it/keysng/dx/MainActivity.kt`: interfaccia Android iniziale; in una futura app Flutter può essere sostituita da una schermata Dart mantenendo il confine Kotlin per il provider.
 
 ## Licenza
 

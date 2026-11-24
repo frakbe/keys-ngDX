@@ -12,6 +12,7 @@ data class CredentialEntry(
     val actions: List<EntryAction>,
     val tags: List<String>,
     val revision: Int,
+    val folderId: String?,
 )
 
 data class EntryAction(

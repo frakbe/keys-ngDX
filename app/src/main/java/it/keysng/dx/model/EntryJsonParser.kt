@@ -57,6 +57,7 @@ object EntryJsonParser {
             },
             tags = root.optJSONArray("tags").stringValues(),
             revision = revision,
+            folderId = root.optionalString("folder_id")?.also { UUID.fromString(it) },
         )
     }
 
