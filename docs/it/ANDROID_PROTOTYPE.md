@@ -94,6 +94,7 @@ Le azioni SSH/RDP/command non vengono eseguite né mostrate in questo client gen
 
 - **Provider non disponibile**: verifica che PGPony sia installato; chiudi e riapri Keys NG DX.
 - **Richiesta di autorizzazione**: accetta Keys NG DX nell'elenco delle app collegate di PGPony.
+- **“PGPony ha chiuso o rifiutato la richiesta”**: controlla in PGPony → Settings → Connected apps che Keys NG DX sia autorizzata. Se avevi appena autorizzato l'app, chiudi e riapri Keys NG DX e riprova.
 - **Chiave mancante o passphrase errata**: controlla che la chiave privata corretta sia nel portachiavi PGPony e che possa decifrare il record.
 - **JSON non valido**: assicurati di selezionare il file record di una voce, non `catalog.gpg` o `folders.gpg`, e verifica che il record sia schema 1.
 - **Firma non valida o assente**: il prototipo mostra il risultato del provider, ma non applica la policy del vault; non usare il risultato come verifica di integrità per un vault reale.

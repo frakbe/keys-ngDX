@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var providerClient: OpenPgpProviderClient
     private var providerReady = false
     private var pendingSource: Uri? = null
+    private var pendingRequestData: Intent? = null
     private var currentEntry: CredentialEntry? = null
     private var clipboardGeneration = 0
     private val handler = Handler(Looper.getMainLooper())
@@ -54,9 +55,16 @@ class MainActivity : ComponentActivity() {
         val source = pendingSource
         if (result.resultCode == Activity.RESULT_OK && source != null) {
             setStatus("Completamento della decifratura…")
-            decrypt(source, result.data ?: Intent())
+            val retryData = result.data ?: pendingRequestData ?: Intent()
+            pendingRequestData = null
+            decrypt(source, retryData)
         } else {
-            setStatus("Decifratura annullata")
+            pendingRequestData = null
+            setStatus(
+                "PGPony ha chiuso o rifiutato la richiesta (codice ${result.resultCode}). " +
+                    "Se non intendevi annullarla, apri PGPony → Settings → Connected apps, " +
+                    "autorizza Keys NG DX e riprova."
+            )
         }
     }
 
@@ -175,6 +183,7 @@ class MainActivity : ComponentActivity() {
             when (outcome) {
                 is OpenPgpProviderClient.Outcome.InteractionRequired -> {
                     pendingSource = source
+                    pendingRequestData = outcome.requestData
                     try {
                         providerInteraction.launch(
                             IntentSenderRequest.Builder(outcome.pendingIntent.intentSender).build(),
