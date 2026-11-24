@@ -1,6 +1,7 @@
 package it.keysng.dx
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -144,6 +145,24 @@ class MainActivity : ComponentActivity() {
             setBackgroundColor(0xFFFFF1CC.toInt())
         }
         container.addView(warning)
+
+        container.addView(Button(this).apply {
+            text = "Licenza e informazioni"
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Licenza")
+                    .setMessage(
+                        "Keys NG DX · prototipo tecnico\n" +
+                            "Copyright © 2026 Franco ‘frakbe’ Bersani\n\n" +
+                            "Software libero distribuito secondo la GNU General Public License, versione 3 o successiva. " +
+                            "È fornito senza garanzia. Puoi ridistribuirlo e modificarlo secondo i termini della licenza.\n\n" +
+                            "Testo completo: https://www.gnu.org/licenses/gpl-3.0.html\n" +
+                            "Nel repository: LICENSE",
+                    )
+                    .setPositiveButton("Chiudi", null)
+                    .show()
+            }
+        })
         setContentView(scroll)
     }
 
@@ -273,7 +292,7 @@ class MainActivity : ComponentActivity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
-        private const val FIXED_CHILD_COUNT = 5
+        private const val FIXED_CHILD_COUNT = 6
         private const val CLIPBOARD_CLEAR_DELAY_MS = 30_000L
     }
 }

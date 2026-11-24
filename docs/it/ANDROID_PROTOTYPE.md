@@ -1,6 +1,6 @@
 # Prototipo Android Keys NG DX
 
-Il prototipo apre un singolo file record `.gpg`, chiede la decifratura a un provider OpenPGP Android tramite l'API OpenPGP, interpreta il JSON Keys NG schema 1 e mostra i campi in sola lettura. Non contiene né importa chiavi private e non implementa la crittografia: il provider installato sul dispositivo gestisce la chiave e l'eventuale sblocco.
+Il prototipo apre un singolo file record `.gpg`, chiede la decifratura a un provider OpenPGP Android tramite l'API OpenPGP, interpreta il JSON Keys NG schema 1 e mostra i campi in sola lettura. Non contiene né importa chiavi private e non implementa la crittografia: il provider installato sul dispositivo gestisce la chiave e l'eventuale sblocco. Il pulsante **Licenza e informazioni** mostra una breve nota GPL; il testo GPL completo è nel repository.
 
 ## Avvertenza
 
