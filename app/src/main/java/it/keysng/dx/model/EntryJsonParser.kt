@@ -48,6 +48,13 @@ object EntryJsonParser {
                     period = token.optInt("period", 30),
                 )
             },
+            actions = root.optJSONArray("actions").objects().map { action ->
+                EntryAction(
+                    type = action.getString("type"),
+                    url = action.optionalString("url"),
+                    host = action.optionalString("host"),
+                )
+            },
             tags = root.optJSONArray("tags").stringValues(),
             revision = revision,
         )

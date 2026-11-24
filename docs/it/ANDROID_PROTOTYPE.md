@@ -86,9 +86,9 @@ Il workflow GitHub Actions `Android prototype` compila `:app:assembleDebug` quan
 
 ## Modello e campi
 
-Il parser supporta lo schema 1 descritto in `docs/it/VAULT_FORMAT_1.0.md` del progetto Keys NG: `title`, `kind`, `usernames`, `password`, `totp`, `tags`, `notes`, `custom_fields` e `revision`. Campi con valore `{REF:U@I:...}` o `{REF:P@I:...}` sono mostrati letteralmente: la risoluzione richiede l'accesso agli altri record del vault.
+Il parser supporta lo schema 1 descritto in `docs/it/VAULT_FORMAT_1.0.md` del progetto Keys NG: `title`, `kind`, `usernames`, `password`, `totp`, `actions` (campi `url` e `host`), `tags`, `notes`, `custom_fields` e `revision`. La schermata mostra titolo, username, password, TOTP, URL, host e note quando presenti. Campi con valore `{REF:U@I:...}` o `{REF:P@I:...}` sono mostrati letteralmente: la risoluzione richiede l'accesso agli altri record del vault.
 
-Le azioni SSH/RDP/command non vengono eseguite né mostrate in questo client generico.
+I dati `url` e `host` delle azioni vengono mostrati come testo copiabile. Le azioni URL/SSH/RDP/command non vengono eseguite da questo client.
 
 ## Diagnostica
 

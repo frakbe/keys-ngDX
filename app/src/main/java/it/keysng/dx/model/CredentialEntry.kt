@@ -9,8 +9,15 @@ data class CredentialEntry(
     val notes: String,
     val customFields: Map<String, String>,
     val totp: List<TotpField>,
+    val actions: List<EntryAction>,
     val tags: List<String>,
     val revision: Int,
+)
+
+data class EntryAction(
+    val type: String,
+    val url: String?,
+    val host: String?,
 )
 
 data class TotpField(

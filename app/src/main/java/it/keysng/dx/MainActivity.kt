@@ -24,6 +24,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import it.keysng.dx.crypto.OpenPgpProviderClient
 import it.keysng.dx.model.CredentialEntry
+import it.keysng.dx.model.EntryAction
 import it.keysng.dx.model.EntryJsonParser
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
@@ -244,8 +245,7 @@ class MainActivity : ComponentActivity() {
         currentEntry = entry
         clearEntryViews()
         setStatus("Voce decifrata · $signatureStatus")
-        addSection("Titolo", entry.title, copyable = false)
-        addSection("Tipo", entry.kind)
+        addSection("Titolo", entry.title)
         entry.usernames.forEachIndexed { index, value ->
             addSection(if (entry.usernames.size == 1) "Username" else "Username ${index + 1}", value)
         }
@@ -258,10 +258,17 @@ class MainActivity : ComponentActivity() {
             }
             addSection(label, token.secret)
         }
+        val urls = entry.actions.mapNotNull(EntryAction::url).filter(String::isNotBlank)
+        urls.forEachIndexed { index, url ->
+            addSection(if (urls.size == 1) "URL" else "URL ${index + 1}", url)
+        }
+        val hosts = entry.actions.mapNotNull(EntryAction::host).filter(String::isNotBlank)
+        hosts.forEachIndexed { index, host ->
+            addSection(if (hosts.size == 1) "Host" else "Host ${index + 1}", host)
+        }
         if (entry.notes.isNotBlank()) addSection("Note", entry.notes)
         entry.customFields.forEach { (label, value) -> addSection(label, value) }
         if (entry.tags.isNotEmpty()) addSection("Tag", entry.tags.joinToString(", "), copyable = false)
-        addSection("Revisione", entry.revision.toString(), copyable = false)
     }
 
     private fun addSection(label: String, value: String, copyable: Boolean = true) {
