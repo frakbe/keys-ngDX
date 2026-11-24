@@ -61,9 +61,10 @@ class MainActivity : ComponentActivity() {
         } else {
             pendingRequestData = null
             setStatus(
-                "PGPony ha chiuso o rifiutato la richiesta (codice ${result.resultCode}). " +
-                    "Se non intendevi annullarla, apri PGPony → Settings → Connected apps, " +
-                    "autorizza Keys NG DX e riprova."
+                "PGPony non ha completato la schermata di autorizzazione " +
+                    "(codice ${result.resultCode}). Connected apps mostra solo le app già " +
+                    "autorizzate: l'elenco vuoto è normale finché non approvi Keys NG DX. " +
+                    "Riprova e, se compare il dialogo PGPony, scegli Allow."
             )
         }
     }

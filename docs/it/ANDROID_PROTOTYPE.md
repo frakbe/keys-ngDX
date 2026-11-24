@@ -13,7 +13,7 @@ Il prototipo apre un singolo file record `.gpg`, chiede la decifratura a un prov
 - Una chiave di prova già importata in PGPony e autorizzata a decifrare il record scelto.
 - Una voce cifrata `.gpg` di un vault di prova, con dati fittizi.
 
-Quando l'app richiede per la prima volta il collegamento, autorizza Keys NG DX in PGPony. PGPony può mostrare una propria schermata per scegliere la chiave o sbloccarla; completata l'interazione, il provider restituisce il risultato all'app.
+Alla prima richiesta PGPony mostra una schermata di consenso per collegare Keys NG DX. Conferma con **Allow**; solo dopo l'approvazione l'app compare in **Settings → Keys & Servers → Connected apps**. Questa schermata elenca le app già autorizzate, non le richieste pendenti: prima del consenso è normale che mostri “No connected apps yet”. PGPony può poi mostrare una schermata separata per scegliere o sbloccare la chiave.
 
 ## Uso
 
@@ -93,8 +93,8 @@ Le azioni SSH/RDP/command non vengono eseguite né mostrate in questo client gen
 ## Diagnostica
 
 - **Provider non disponibile**: verifica che PGPony sia installato; chiudi e riapri Keys NG DX.
-- **Richiesta di autorizzazione**: accetta Keys NG DX nell'elenco delle app collegate di PGPony.
-- **“PGPony ha chiuso o rifiutato la richiesta”**: controlla in PGPony → Settings → Connected apps che Keys NG DX sia autorizzata. Se avevi appena autorizzato l'app, chiudi e riapri Keys NG DX e riprova.
+- **Richiesta di autorizzazione**: alla prima apertura del file, accetta il dialogo di consenso PGPony con **Allow**. Dopo l'accettazione Keys NG DX compare in PGPony → Settings → Keys & Servers → Connected apps.
+- **“PGPony non ha completato la schermata di autorizzazione”**: il codice 0 è `RESULT_CANCELED`; può indicare che il dialogo è stato chiuso/rifiutato o che l'attività di consenso non è terminata correttamente. **Connected apps** mostra solo le app approvate, quindi l'elenco vuoto da solo non indica una richiesta pendente. Se il dialogo non compare o l'errore si ripete dopo aver scelto **Allow**, annota versione Android e versione PGPony per la diagnosi.
 - **Chiave mancante o passphrase errata**: controlla che la chiave privata corretta sia nel portachiavi PGPony e che possa decifrare il record.
 - **JSON non valido**: assicurati di selezionare il file record di una voce, non `catalog.gpg` o `folders.gpg`, e verifica che il record sia schema 1.
 - **Firma non valida o assente**: il prototipo mostra il risultato del provider, ma non applica la policy del vault; non usare il risultato come verifica di integrità per un vault reale.
