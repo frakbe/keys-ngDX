@@ -10,12 +10,18 @@ Prima build funzionale del lettore Android nativo in Kotlin. L'app apre una dire
 - Decifratura OpenPGP delegata a PGPony. Keys NG DX non importa né conserva chiavi private o passphrase.
 - Verifica dell'hash ciphertext quando presente nel catalogo e confronto di UUID, titolo, revisione e cartella del record con il catalogo.
 - Visualizzazione e copia di titolo, username, password, TOTP, URL, host, note, tag e campi personalizzati.
+- Password oscurata all'apertura, con controlli separati per mostrarla e copiarla.
+- Calcolo locale TOTP per SHA-1, SHA-256 e SHA-512, conto alla rovescia, ricalcolo manuale e copia del codice numerico.
+- Ricerca delle voci tramite titolo, tipo, UUID, percorso cartella e metadati presenti nel catalogo (username, tag, host URL e capability).
+- Preferenza iniziale cartelle dal campo opzionale `tree_startup_view` in `vault.json`: `expanded` o `compact`. Se manca, la vista parte espansa. La scelta manuale di aprire o chiudere cartelle vale per la sessione corrente.
 - Gli URL `http` e `https` sono cliccabili e si aprono con il browser installato.
 - L'app non modifica il vault e non esegue azioni SSH, RDP o comandi.
 
 ## Limiti della prima build
 
-Questa build è destinata alla verifica con vault di prova. Non legge ancora `vault.json`, non applica la policy `require_signature` e non confronta l'identità completa del firmatario con `trusted_signers`. Lo stato firma restituito da PGPony è mostrato a schermo come informazione, ma non è sufficiente a dimostrare che il firmatario sia autorizzato dal vault. I riferimenti `{REF:...}` fra record restano letterali. Non usare questa build come unico controllo di integrità o fiducia per dati critici.
+Questa build è destinata alla verifica con vault di prova. Legge da `vault.json` solo lo schema e il campo UI facoltativo `tree_startup_view`; non applica la policy `require_signature` e non confronta l'identità completa del firmatario con `trusted_signers`. Lo stato firma restituito da PGPony è mostrato a schermo come informazione, ma non è sufficiente a dimostrare che il firmatario sia autorizzato dal vault. I riferimenti `{REF:...}` fra record restano letterali. Non usare questa build come unico controllo di integrità o fiducia per dati critici.
+
+Nel progetto Keys NG attuale, `tree_startup_view` è una preferenza globale in `config.toml`, non è ancora scritto in `vault.json`. Android è già predisposto a leggere il campo per-vault opzionale, ma per ora i vault generati dal progetto principale non lo contengono, quindi partono espansi. L'app Android è in sola lettura e non scrive questa impostazione; per renderla effettivamente configurabile per vault servirà un aggiornamento coordinato del progetto Keys NG.
 
 Il JSON decifrato non viene scritto su disco e i segreti non vengono scritti nei log. L'app usa `FLAG_SECURE` per limitare screenshot e anteprime nello switcher e cancella i dettagli dalla schermata quando passa in background. I dati rimangono comunque in memoria mentre la voce è aperta.
 
@@ -94,4 +100,5 @@ Il workflow GitHub Actions **Android app** compila l'APK a ogni aggiornamento de
 - `crypto/OpenPgpProviderClient.kt`: adapter Kotlin dell'API OpenPGP del provider.
 - `storage/VaultDocumentTree.kt`: accesso SAF in sola lettura.
 - `model/EntryJsonParser.kt` e `model/VaultIndexParser.kt`: parser indipendenti dalla UI per i payload schema 1.
+- `model/TotpGenerator.kt`: generatore RFC 6238 che supporta Base32 e SHA-1/SHA-256/SHA-512.
 - `MainActivity.kt`: interfaccia Android iniziale. Il livello provider e i parser possono essere riutilizzati se in seguito si porta la UI in Flutter tramite platform channel.

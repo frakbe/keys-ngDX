@@ -1,6 +1,6 @@
 # Keys NG DX
 
-Lettore Android nativo in Kotlin per vault Keys NG. Apre la directory del vault, decifra catalogo e cartelle con PGPony, mostra l'alberatura e permette di consultare e copiare i campi delle voci. Gli URL web possono essere aperti nel browser. L'app non modifica i file e non esegue azioni remote.
+Lettore Android nativo in Kotlin per vault Keys NG. Apre la directory del vault, decifra catalogo e cartelle con PGPony, mostra l'alberatura e permette di consultare e copiare i campi delle voci. Le password partono oscurate; i TOTP sono calcolati e aggiornati automaticamente. Sono inclusi ricerca delle voci e apertura degli URL web nel browser. L'app non modifica i file e non esegue azioni remote.
 
 Questa prima build è destinata alla prova: la policy di fiducia `trusted_signers` non è ancora applicata. Prima di usarla con dati critici, leggi [la guida Android](docs/it/ANDROID_PROTOTYPE.md), inclusi limiti e procedura per generare l'APK.
 

@@ -16,10 +16,14 @@ import android.os.Looper
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import android.text.Editable
+import android.text.InputType
+import android.text.TextWatcher
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,17 +36,23 @@ import it.keysng.dx.model.VaultCatalog
 import it.keysng.dx.model.VaultFolder
 import it.keysng.dx.model.VaultFolderStore
 import it.keysng.dx.model.VaultIndexParser
+import it.keysng.dx.model.FolderStartupView
+import it.keysng.dx.model.TotpGenerator
+import it.keysng.dx.model.TotpField
+import it.keysng.dx.model.VaultPreferences
 import it.keysng.dx.storage.VaultDocument
 import it.keysng.dx.storage.VaultDocumentTree
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.security.MessageDigest
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private lateinit var content: LinearLayout
     private lateinit var statusView: TextView
     private lateinit var chooseVaultButton: Button
     private lateinit var refreshButton: Button
+    private lateinit var searchField: EditText
     private lateinit var providerClient: OpenPgpProviderClient
     private lateinit var entryBackCallback: OnBackPressedCallback
 
@@ -53,12 +63,30 @@ class MainActivity : ComponentActivity() {
     private var foldersDocument: VaultDocument? = null
     private var catalog: VaultCatalog? = null
     private var folders: VaultFolderStore? = null
+    private var folderStartupView = FolderStartupView.EXPANDED
     private var recordUris: Map<String, Uri> = emptyMap()
     private var currentEntry: CredentialEntry? = null
     private val collapsedFolders = mutableSetOf<String>()
+    private val totpBindings = mutableListOf<TotpBinding>()
     private var pendingDecryption: PendingDecryption? = null
     private var clipboardGeneration = 0
     private val handler = Handler(Looper.getMainLooper())
+
+    private data class TotpBinding(
+        val token: TotpField,
+        val codeView: TextView,
+        val countdownView: TextView,
+        var counter: Long? = null,
+    )
+
+    private val totpTicker = object : Runnable {
+        override fun run() {
+            if (currentEntry == null) return
+            val now = System.currentTimeMillis() / 1_000L
+            totpBindings.forEach { updateTotp(it, now) }
+            handler.postDelayed(this, 1_000L)
+        }
+    }
 
     private data class PendingDecryption(
         val uri: Uri,
@@ -80,6 +108,7 @@ class MainActivity : ComponentActivity() {
         entryBackCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 currentEntry = null
+                stopTotpTicker()
                 isEnabled = false
                 renderBrowser()
                 setStatus("Elenco del vault")
@@ -119,6 +148,7 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         if (currentEntry != null) {
             currentEntry = null
+            stopTotpTicker()
             entryBackCallback.isEnabled = false
             renderBrowser()
             setStatus("Dettagli nascosti in background. Seleziona di nuovo la voce per consultarli.")
@@ -188,6 +218,21 @@ class MainActivity : ComponentActivity() {
         toolbar.addView(refreshButton)
         root.addView(toolbar)
 
+        searchField = EditText(this).apply {
+            hint = "Cerca voci"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            singleLine = true
+            visibility = android.view.View.GONE
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    if (catalog != null) renderBrowser()
+                }
+                override fun afterTextChanged(s: Editable?) = Unit
+            })
+        }
+        root.addView(searchField)
+
         statusView = TextView(this).apply {
             textSize = 14f
             setPadding(0, dp(10), 0, dp(10))
@@ -219,6 +264,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun renderWelcome() {
+        if (::searchField.isInitialized) searchField.visibility = android.view.View.GONE
         content.removeAllViews()
         content.addView(TextView(this).apply {
             text = "Scegli la cartella principale del vault. Keys NG DX leggerà catalogo, cartelle e record senza modificare i file."
@@ -247,16 +293,21 @@ class MainActivity : ComponentActivity() {
         currentEntry = null
         catalog = null
         folders = null
+        folderStartupView = FolderStartupView.EXPANDED
+        if (::searchField.isInitialized) searchField.setText("")
         documentTree = null
         recordUris = emptyMap()
         entryBackCallback.isEnabled = false
         setBusy(true)
         setStatus("Ricerca catalogo, cartelle e record…")
+        searchField.visibility = android.view.View.GONE
         content.removeAllViews()
         content.addView(TextView(this).apply { text = "Apertura del vault…" })
 
         try {
             val tree = VaultDocumentTree(contentResolver, uri)
+            val vaultConfig = tree.requiredFile(tree.rootDocumentId, "vault.json")
+            val preferences = VaultPreferences.parse(decodeUtf8(tree.readBytes(vaultConfig)))
             val catalogFile = tree.requiredFile(tree.rootDocumentId, "catalog.gpg")
             val foldersFile = tree.optionalFile(tree.rootDocumentId, "folders.gpg")
             val recordsDir = tree.requiredDirectory(tree.rootDocumentId, "records")
@@ -273,7 +324,7 @@ class MainActivity : ComponentActivity() {
                 }
                 val folderFile = foldersDocument
                 if (folderFile == null) {
-                    completeVaultLoad(parsedCatalog, parsedCatalog.folders, catalogSignature, "cartelle dal catalogo")
+                    completeVaultLoad(parsedCatalog, parsedCatalog.folders, catalogSignature, "cartelle dal catalogo", preferences.folderStartupView)
                 } else {
                     decryptDocument(folderFile.uri) { folderPlaintext, folderSignature ->
                         val folderStore = try {
@@ -281,7 +332,7 @@ class MainActivity : ComponentActivity() {
                         } catch (error: Exception) {
                             throw IllegalArgumentException("Elenco cartelle non valido: ${error.message}", error)
                         }
-                        completeVaultLoad(parsedCatalog, folderStore.folders, catalogSignature, folderSignature)
+                        completeVaultLoad(parsedCatalog, folderStore.folders, catalogSignature, folderSignature, preferences.folderStartupView)
                     }
                 }
             }
@@ -297,6 +348,7 @@ class MainActivity : ComponentActivity() {
         loadedFolders: List<VaultFolder>,
         catalogSignature: String,
         foldersSignature: String,
+        startupView: FolderStartupView,
     ) {
         try {
             VaultIndexParser.validateFolderTree(loadedFolders)
@@ -313,7 +365,12 @@ class MainActivity : ComponentActivity() {
             }
             catalog = loadedCatalog
             folders = VaultFolderStore(loadedFolders)
+            folderStartupView = startupView
             collapsedFolders.clear()
+            if (startupView == FolderStartupView.COMPACT) {
+                collapsedFolders.addAll(loadedFolders.map(VaultFolder::id))
+            }
+            searchField.visibility = android.view.View.VISIBLE
             setBusy(false)
             setStatus(
                 "Vault caricato · ${loadedCatalog.items.size} voci · catalogo: $catalogSignature · cartelle: $foldersSignature"
@@ -458,6 +515,12 @@ class MainActivity : ComponentActivity() {
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             setPadding(0, dp(4), 0, dp(8))
         })
+        searchField.visibility = android.view.View.VISIBLE
+        val query = searchField.text.toString().trim().lowercase(Locale.ROOT)
+        if (query.isNotEmpty()) {
+            renderSearchResults(currentCatalog, currentFolders, query)
+            return
+        }
         val foldersByParent = currentFolders.folders.groupBy(VaultFolder::parentId)
         val entriesByFolder = currentCatalog.items.groupBy(CatalogItem::folderId)
 
@@ -508,13 +571,65 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun renderSearchResults(currentCatalog: VaultCatalog, currentFolders: VaultFolderStore, query: String) {
+        val folderById = currentFolders.folders.associateBy(VaultFolder::id)
+        val matches = currentCatalog.items.filter { item ->
+            val searchable = listOf(
+                item.title,
+                item.kind,
+                item.id,
+                folderPath(item.folderId, folderById),
+            ) + item.usernames + item.tags + item.urlHosts + item.capabilities
+            searchable.any { it.lowercase(Locale.ROOT).contains(query) }
+        }.sortedBy { it.title.lowercase(Locale.ROOT) }
+
+        content.addView(TextView(this).apply {
+            text = "${matches.size} risultati"
+            textSize = 15f
+            setPadding(0, dp(2), 0, dp(6))
+        })
+        if (matches.isEmpty()) {
+            content.addView(TextView(this).apply {
+                text = "Nessuna voce corrisponde alla ricerca."
+                textSize = 16f
+                setPadding(0, dp(8), 0, dp(8))
+            })
+            return
+        }
+        matches.forEach { item ->
+            content.addView(Button(this).apply {
+                text = "${item.title}\n${folderPath(item.folderId, folderById)}"
+                textSize = 15f
+                isAllCaps = false
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(8), dp(12), dp(8))
+                setOnClickListener { openEntry(item) }
+            })
+        }
+    }
+
+    private fun folderPath(folderId: String?, foldersById: Map<String, VaultFolder>): String {
+        if (folderId == null) return "Senza cartella"
+        val names = mutableListOf<String>()
+        var currentId: String? = folderId
+        while (currentId != null) {
+            val folder = foldersById[currentId] ?: break
+            names += folder.name
+            currentId = folder.parentId
+        }
+        return names.asReversed().joinToString(" / ").ifEmpty { "Senza cartella" }
+    }
+
     private fun renderEntry(entry: CredentialEntry) {
+        stopTotpTicker()
+        totpBindings.clear()
         content.removeAllViews()
         content.addView(Button(this).apply {
             text = "← Elenco del vault"
             isAllCaps = false
             setOnClickListener {
                 currentEntry = null
+                stopTotpTicker()
                 entryBackCallback.isEnabled = false
                 renderBrowser()
                 setStatus("Elenco del vault")
@@ -524,12 +639,12 @@ class MainActivity : ComponentActivity() {
         entry.usernames.forEachIndexed { index, value ->
             addSection(if (entry.usernames.size == 1) "Username" else "Username ${index + 1}", value)
         }
-        entry.password?.let { addSection("Password", it) }
+        entry.password?.let(::addPasswordSection)
         entry.totp.forEachIndexed { index, token ->
             val account = listOf(token.issuer, token.accountName)
                 .filter(String::isNotBlank).joinToString(" · ")
             val label = if (account.isEmpty()) "TOTP ${index + 1}" else "TOTP ${index + 1} · $account"
-            addSection(label, token.secret)
+            addTotpSection(label, token)
         }
         val urls = entry.actions.mapNotNull(EntryAction::url).filter(String::isNotBlank)
         urls.forEachIndexed { index, url ->
@@ -542,6 +657,117 @@ class MainActivity : ComponentActivity() {
         if (entry.notes.isNotBlank()) addSection("Note", entry.notes)
         entry.customFields.forEach { (label, value) -> addSection(label, value) }
         if (entry.tags.isNotEmpty()) addSection("Tag", entry.tags.joinToString(", "), copyable = false)
+        if (totpBindings.isNotEmpty()) {
+            val now = System.currentTimeMillis() / 1_000L
+            totpBindings.forEach { updateTotp(it, now, force = true) }
+            handler.post(totpTicker)
+        }
+    }
+
+    private fun addPasswordSection(password: String) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(12), 0, dp(4))
+        }
+        row.addView(TextView(this).apply {
+            text = "Password"
+            textSize = 14f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        })
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        var visible = false
+        val valueView = TextView(this).apply {
+            text = PASSWORD_MASK
+            textSize = 16f
+            setPadding(0, dp(6), dp(8), dp(6))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        controls.addView(valueView)
+        controls.addView(Button(this).apply {
+            text = "Copia"
+            isAllCaps = false
+            setOnClickListener { copyValue("Password", password) }
+        })
+        controls.addView(Button(this).apply {
+            text = "Mostra"
+            isAllCaps = false
+            setOnClickListener {
+                visible = !visible
+                valueView.text = if (visible) password else PASSWORD_MASK
+                text = if (visible) "Nascondi" else "Mostra"
+            }
+        })
+        row.addView(controls)
+        content.addView(row)
+    }
+
+    private fun addTotpSection(label: String, token: TotpField) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(12), 0, dp(4))
+        }
+        row.addView(TextView(this).apply {
+            text = label
+            textSize = 14f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        })
+        val codeView = TextView(this).apply {
+            text = "—"
+            textSize = 22f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setPadding(0, dp(6), 0, 0)
+        }
+        val countdownView = TextView(this).apply {
+            textSize = 13f
+            setPadding(0, dp(2), 0, dp(4))
+        }
+        row.addView(codeView)
+        row.addView(countdownView)
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val binding = TotpBinding(token, codeView, countdownView)
+        totpBindings += binding
+        controls.addView(Button(this).apply {
+            text = "Copia codice"
+            isAllCaps = false
+            setOnClickListener {
+                val code = binding.codeView.text.toString()
+                if (code.all { it.isDigit() }) copyValue(label, code)
+            }
+        })
+        controls.addView(Button(this).apply {
+            text = "Ricalcola"
+            isAllCaps = false
+            setOnClickListener { updateTotp(binding, System.currentTimeMillis() / 1_000L, force = true) }
+        })
+        row.addView(controls)
+        content.addView(row)
+    }
+
+    private fun updateTotp(binding: TotpBinding, epochSeconds: Long, force: Boolean = false) {
+        try {
+            val counter = TotpGenerator.counter(epochSeconds, binding.token.period)
+            if (force || binding.counter != counter) {
+                binding.codeView.text = TotpGenerator.code(binding.token, epochSeconds)
+                binding.counter = counter
+            }
+            val seconds = TotpGenerator.secondsRemaining(epochSeconds, binding.token.period)
+            binding.countdownView.text = "Nuovo codice tra ${seconds}s"
+        } catch (error: Exception) {
+            binding.codeView.text = "Non disponibile"
+            binding.countdownView.text = error.message ?: "Secret o parametri TOTP non validi"
+            binding.counter = null
+        }
+    }
+
+    private fun stopTotpTicker() {
+        handler.removeCallbacks(totpTicker)
+        totpBindings.clear()
     }
 
     private fun addSection(
@@ -647,5 +873,6 @@ class MainActivity : ComponentActivity() {
         private const val PREF_VAULT_URI = "selected_vault_tree_uri"
         private const val PROVIDER_INTERACTION_REQUEST = 8401
         private const val CLIPBOARD_CLEAR_DELAY_MS = 30_000L
+        private const val PASSWORD_MASK = "••••••••"
     }
 }
