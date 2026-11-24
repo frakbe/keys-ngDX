@@ -27,7 +27,27 @@ jobs:
           gradle-version: "8.11.1"
 
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
+        id: build
+        shell: bash
+        run: |
+          set +e
+          gradle --no-daemon :app:assembleDebug > build-output.txt 2>&1
+          result=$?
+          cat build-output.txt
+          if [ "$result" -ne 0 ]; then
+            summary=$(grep -E '(^e: |^> |error:|FAILURE:)' build-output.txt | head -n 3 | tr '\n' ' ' | sed 's/[^A-Za-z0-9._:-]/_/g' | cut -c1-180)
+            echo "summary=${summary:-gradle-failed}" >> "$GITHUB_OUTPUT"
+          fi
+          exit "$result"
+
+      - name: Upload build diagnostic
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-failure-${{ steps.build.outputs.summary }}
+          path: build-output.txt
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
