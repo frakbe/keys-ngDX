@@ -6,8 +6,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentSender
 import android.graphics.Typeface
 import android.net.Uri
+import android.app.ActivityOptions
 import android.os.Bundle
 import android.os.Build
 import android.os.Handler
@@ -18,7 +20,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import it.keysng.dx.crypto.OpenPgpProviderClient
@@ -46,26 +47,6 @@ class MainActivity : ComponentActivity() {
             clearEntryViews()
             setStatus("Richiesta di decifratura a PGPony…")
             decrypt(uri)
-        }
-    }
-
-    private val providerInteraction = registerForActivityResult(
-        ActivityResultContracts.StartIntentSenderForResult(),
-    ) { result ->
-        val source = pendingSource
-        if (result.resultCode == Activity.RESULT_OK && source != null) {
-            setStatus("Completamento della decifratura…")
-            val retryData = result.data ?: pendingRequestData ?: Intent()
-            pendingRequestData = null
-            decrypt(source, retryData)
-        } else {
-            pendingRequestData = null
-            setStatus(
-                "PGPony non ha completato la schermata di autorizzazione " +
-                    "(codice ${result.resultCode}). Connected apps mostra solo le app già " +
-                    "autorizzate: l'elenco vuoto è normale finché non approvi Keys NG DX. " +
-                    "Riprova e, se compare il dialogo PGPony, scegli Allow."
-            )
         }
     }
 
@@ -103,6 +84,29 @@ class MainActivity : ComponentActivity() {
             currentEntry = null
             clearEntryViews()
             setStatus("Voce nascosta quando l’app è in background. Riaprila per consultarla di nuovo.")
+        }
+    }
+
+    @Deprecated("Uses Activity result API to pass Android 14 PendingIntent launch options")
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != PROVIDER_INTERACTION_REQUEST) return
+
+        val source = pendingSource
+        if (resultCode == Activity.RESULT_OK && source != null) {
+            setStatus("Completamento della decifratura…")
+            val retryData = data ?: pendingRequestData ?: Intent()
+            pendingRequestData = null
+            decrypt(source, retryData)
+        } else {
+            pendingRequestData = null
+            setStatus(
+                "PGPony non ha completato la schermata di autorizzazione " +
+                    "(codice $resultCode). Connected apps mostra solo le app già " +
+                    "autorizzate: l'elenco vuoto è normale finché non approvi Keys NG DX. " +
+                    "Riprova e, se compare il dialogo PGPony, scegli Allow."
+            )
         }
     }
 
@@ -185,13 +189,7 @@ class MainActivity : ComponentActivity() {
                 is OpenPgpProviderClient.Outcome.InteractionRequired -> {
                     pendingSource = source
                     pendingRequestData = outcome.requestData
-                    try {
-                        providerInteraction.launch(
-                            IntentSenderRequest.Builder(outcome.pendingIntent.intentSender).build(),
-                        )
-                    } catch (_: Exception) {
-                        setStatus("Impossibile aprire la richiesta di autorizzazione del provider")
-                    }
+                    launchProviderInteraction(outcome.pendingIntent.intentSender)
                 }
 
                 is OpenPgpProviderClient.Outcome.Failure -> setStatus(outcome.message)
@@ -212,6 +210,33 @@ class MainActivity : ComponentActivity() {
                     renderEntry(entry, outcome.signatureStatus)
                 }
             }
+        }
+    }
+
+    private fun launchProviderInteraction(intentSender: IntentSender) {
+        val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ActivityOptions.makeBasic()
+                .setPendingIntentBackgroundActivityStartMode(
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED,
+                )
+                .toBundle()
+        } else {
+            null
+        }
+        try {
+            @Suppress("DEPRECATION")
+            startIntentSenderForResult(
+                intentSender,
+                PROVIDER_INTERACTION_REQUEST,
+                null,
+                0,
+                0,
+                0,
+                options,
+            )
+        } catch (_: IntentSender.SendIntentException) {
+            pendingRequestData = null
+            setStatus("Android non ha potuto avviare la schermata di PGPony")
         }
     }
 
@@ -304,5 +329,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val FIXED_CHILD_COUNT = 6
         private const val CLIPBOARD_CLEAR_DELAY_MS = 30_000L
+        private const val PROVIDER_INTERACTION_REQUEST = 8401
     }
 }
