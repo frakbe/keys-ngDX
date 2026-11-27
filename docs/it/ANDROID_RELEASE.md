@@ -4,6 +4,10 @@ Questa guida crea una chiave di firma permanente su Linux, la salva nei segreti 
 
 La workflow crea la prerelease quando viene avviata manualmente. Il tag suggerito per la versione corrente è `v0.2.0-beta.3`.
 
+## Prima di avviare la workflow
+
+Queste modifiche sono nel [PR #1](https://github.com/frakbe/keys-ngDX/pull/1), attualmente in bozza. Perché GitHub mostri il pulsante **Run workflow**, il file deve essere presente nel branch predefinito `main`. Quando hai revisionato il PR, contrassegnalo come pronto e integralo in `main`; poi potrai avviare il rilascio. GitHub richiede il branch predefinito per attivare una workflow `workflow_dispatch`.
+
 ## 1. Crea il keystore sul PC Linux
 
 Installa un JDK 17, che include `keytool`. Su Debian o Ubuntu:
