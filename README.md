@@ -4,6 +4,8 @@ Lettore Android nativo in Kotlin per vault Keys NG. Apre la directory del vault,
 
 Questa prima build è destinata alla prova: la policy di fiducia `trusted_signers` non è ancora applicata. Prima di usarla con dati critici, leggi [la guida Android](docs/it/ANDROID_PROTOTYPE.md), inclusi limiti e procedura per generare l'APK.
 
+Per preparare una release firmata, creare e custodire il keystore Linux e configurare i segreti GitHub Actions, segui la [guida alle release Android](docs/it/ANDROID_RELEASE.md).
+
 ## Struttura
 
 - `app/src/main/java/it/keysng/dx/crypto`: adapter Kotlin dell'API OpenPGP Android.
